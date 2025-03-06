@@ -31,9 +31,27 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Kelas ini mencari kendala kunci asing yang tersirat (implied foreign key constraints) dalam skema database.
+ * Ia menganalisis kolom dalam tabel dan menemukan kolom yang mungkin berfungsi sebagai kunci asing
+ * tetapi tidak dideklarasikan sebagai kunci asing di skema database.
+ */
 public class ImpliedConstraintsFinder {
 
+    /**
+     * Konstanta untuk menyimpan nama kolom yang harus dikecualikan dari pencarian kendala tersirat.
+     * TODO: Sebaiknya dipindahkan ke file konfigurasi atau properti SchemaSpy.
+     */
+    private static final String EXCLUDED_COLUMN = "LanguageId";
+
+    /**
+     * Mencari kendala kunci asing tersirat dalam koleksi tabel yang diberikan.
+     *
+     * @param tables Koleksi tabel yang akan dianalisis
+     * @return Daftar kendala kunci asing tersirat yang ditemukan
+     */
     public List<ImpliedForeignKeyConstraint> find(Collection<Table> tables) {
+        // Cari kolom-kolom yang tidak memiliki parent
         List<TableColumn> columnsWithoutParents =
             tables
                 .stream()
@@ -43,6 +61,7 @@ public class ImpliedConstraintsFinder {
                 .sorted(byTable)
                 .collect(Collectors.toList());
 
+        // Dapatkan pemetaan untuk primary key
         Map<DatabaseObject, Table> keyedTablesByPrimary = primaryKeys(tables);
 
         List<ImpliedForeignKeyConstraint> impliedConstraints = new ArrayList<>();
@@ -50,32 +69,43 @@ public class ImpliedConstraintsFinder {
         for (TableColumn childColumn : columnsWithoutParents) {
             DatabaseObject columnWithoutParent = new DatabaseObject(childColumn);
 
-            // search for Parent(PK) table
+            // Cari tabel Parent (PK)
             Table primaryTable = findPrimaryTable(columnWithoutParent, keyedTablesByPrimary);
 
             if (primaryTable != null && primaryTable != childColumn.getTable()) {
-                // can't match up multiples...yet...==> so checks only first  PK column.
-                TableColumn parentColumn = primaryTable.getPrimaryColumns().get(0);
-                // make sure the potential child->parent relationships isn't already a
-                // parent->child relationship
-                if (parentColumn.getParentConstraint(childColumn) == null) {
-                    // ok, we've found a potential relationship with a column matches a primary
-                    // key column in another table and isn't already related to that column
-                    impliedConstraints.add(new ImpliedForeignKeyConstraint(parentColumn, childColumn));
+                // Tidak dapat mencocokkan multiple primary key untuk saat ini
+                // sehingga hanya memeriksa kolom PK pertama
+                List<TableColumn> primaryColumns = primaryTable.getPrimaryColumns();
+                if (primaryColumns != null && !primaryColumns.isEmpty()) {
+                    TableColumn parentColumn = primaryColumns.get(0);
+                    // Pastikan hubungan potensial child->parent belum menjadi hubungan parent->child
+                    if (parentColumn.getParentConstraint(childColumn) == null) {
+                        // Kita telah menemukan hubungan potensial dengan kolom yang cocok dengan kolom primary key
+                        // di tabel lain dan belum terkait dengan kolom tersebut
+                        impliedConstraints.add(new ImpliedForeignKeyConstraint(parentColumn, childColumn));
+                    }
                 }
             }
         }
         return impliedConstraints;
     }
 
+    /**
+     * Memeriksa apakah kolom tidak memiliki parent dan dapat digunakan dalam pencarian kendala tersirat.
+     *
+     * @param column Kolom yang akan diperiksa
+     * @return true jika kolom tidak memiliki parent dan dapat digunakan dalam pencarian kendala tersirat
+     */
     private boolean noParent(TableColumn column) {
-        //TODO fixed column name "LanguageId" should be moved to schemaspy properties
         return !column.isForeignKey()
                && !column.isPrimary()
                && column.allowsImpliedParents()
-               && !"LanguageId".equals(column.getName());
+               && !EXCLUDED_COLUMN.equals(column.getName());
     }
 
+    /**
+     * Komparator untuk mengurutkan kolom berdasarkan tabel dan nama kolom.
+     */
     private Comparator<TableColumn> byTable = (column1, column2) -> {
         int rc = column1.getTable().compareTo(column2.getTable());
         if (rc == 0) {
@@ -84,33 +114,47 @@ public class ImpliedConstraintsFinder {
         return rc;
     };
 
+    /**
+     * Mengumpulkan semua primary key dari koleksi tabel dan mengembalikannya dalam bentuk peta.
+     *
+     * @param tables Koleksi tabel yang akan diproses
+     * @return Peta yang memetakan objek database primary key ke tabel yang memilikinya
+     */
     private Map<DatabaseObject, Table> primaryKeys(Collection<Table> tables) {
         Map<DatabaseObject, Table> keyedTablesByPrimary = new TreeMap<>();
 
         for (Table table : tables) {
             List<TableColumn> tablePrimaries = table.getPrimaryColumns();
-            if (tablePrimaries.size() == 1 || tablePrimaries.stream().anyMatch(t -> "LanguageId".equals(t.getName()))) { // can't match up multiples...yet...
+            // Lanjutkan hanya jika ada primary columns dan memenuhi kondisi
+            if (tablePrimaries != null && !tablePrimaries.isEmpty() &&
+                (tablePrimaries.size() == 1 || tablePrimaries.stream().anyMatch(t -> EXCLUDED_COLUMN.equals(t.getName())))) {
+                // Tidak dapat mencocokkan multiple primary key untuk saat ini
                 TableColumn tableColumn = tablePrimaries.get(0);
-                DatabaseObject primary = new DatabaseObject(tableColumn);
-                if (tableColumn.allowsImpliedChildren()) {
-                    // new primary key name/type
-                    keyedTablesByPrimary.put(primary, table);
+                if (tableColumn != null) {
+                    DatabaseObject primary = new DatabaseObject(tableColumn);
+                    if (tableColumn.allowsImpliedChildren()) {
+                        // Primary key baru (nama/tipe)
+                        keyedTablesByPrimary.put(primary, table);
+                    }
                 }
             }
         }
         return keyedTablesByPrimary;
     }
 
+    /**
+     * Mencari tabel primary yang cocok dengan kolom tanpa parent.
+     *
+     * @param columnWithoutParent Objek database yang mewakili kolom tanpa parent
+     * @param keyedTablesByPrimary Peta yang memetakan objek database primary key ke tabel yang memilikinya
+     * @return Tabel primary yang cocok, atau null jika tidak ditemukan atau ada ambiguitas
+     */
     private Table findPrimaryTable(DatabaseObject columnWithoutParent, Map<DatabaseObject, Table> keyedTablesByPrimary) {
         Table primaryTable = null;
         for (Map.Entry<DatabaseObject, Table> entry : keyedTablesByPrimary.entrySet()) {
-            DatabaseObject key = entry.getKey();
-            if (
-                nameMatches(columnWithoutParent.getName(), key.getName(), entry.getValue().getName())
-                && typeMatches(columnWithoutParent, key)
-            ) {
-                // if child column refrencing multiple PK(Parent) tables then don't create implied relationship and exit the loop.
-                // one column can reference only one parent table.!
+            if (isPotentialPrimaryTableMatch(columnWithoutParent, entry)) {
+                // Jika kolom child mereferensikan beberapa tabel PK(Parent), maka jangan buat implied relationship
+                // dan keluar dari loop. Satu kolom hanya dapat mereferensikan satu tabel parent!
                 if (Objects.nonNull(primaryTable)) {
                     return null;
                 }
@@ -119,17 +163,55 @@ public class ImpliedConstraintsFinder {
         }
         return primaryTable;
     }
+    
+    /**
+     * Memeriksa apakah entry peta adalah tabel primary potensial untuk kolom tanpa parent.
+     *
+     * @param columnWithoutParent Objek database yang mewakili kolom tanpa parent
+     * @param entry Entry peta yang berisi objek database primary key dan tabel yang memilikinya
+     * @return true jika entry peta adalah tabel primary potensial untuk kolom tanpa parent
+     */
+    private boolean isPotentialPrimaryTableMatch(DatabaseObject columnWithoutParent, Map.Entry<DatabaseObject, Table> entry) {
+        DatabaseObject key = entry.getKey();
+        return nameMatches(columnWithoutParent.getName(), key.getName(), entry.getValue().getName())
+               && typeMatches(columnWithoutParent, key);
+    }
 
+    /**
+     * Memeriksa apakah nama kolom tanpa parent cocok dengan nama primary key atau tabel primary key.
+     *
+     * @param columnWithoutParent Nama kolom tanpa parent
+     * @param primaryKey Nama primary key
+     * @param primaryKeyTable Nama tabel primary key
+     * @return true jika nama kolom tanpa parent cocok dengan nama primary key atau tabel primary key
+     */
     private boolean nameMatches(String columnWithoutParent, String primaryKey, String primaryKeyTable) {
+        if (columnWithoutParent == null || primaryKey == null || primaryKeyTable == null) {
+            return false;
+        }
         return columnWithoutParent.compareToIgnoreCase(primaryKey) == 0
                || columnWithoutParent.matches("(?i).*_" + Pattern.quote(primaryKey))
                || columnWithoutParent.matches("(?i)" + Pattern.quote(primaryKeyTable) + ".*" + Pattern.quote(primaryKey));
     }
 
+    /**
+     * Memeriksa apakah tipe kolom tanpa parent cocok dengan tipe primary key.
+     *
+     * @param orphan Objek database yang mewakili kolom tanpa parent
+     * @param primaryKey Objek database yang mewakili primary key
+     * @return true jika tipe kolom tanpa parent cocok dengan tipe primary key
+     */
     private boolean typeMatches(DatabaseObject orphan, DatabaseObject primaryKey) {
-        return ((orphan.getType() != null && primaryKey.getType() != null
-                 && orphan.getType().compareTo(primaryKey.getType()) == 0)
-                || orphan.getTypeName()
-                         .compareToIgnoreCase(primaryKey.getTypeName()) == 0) && orphan.getLength() - primaryKey.getLength() == 0;
+        if (orphan == null || primaryKey == null) {
+            return false;
+        }
+        // Periksa kecocokan tipe dan panjang
+        boolean typeMatchByObject = orphan.getType() != null && primaryKey.getType() != null
+                                    && orphan.getType().compareTo(primaryKey.getType()) == 0;
+        boolean typeMatchByName = orphan.getTypeName() != null && primaryKey.getTypeName() != null
+                                  && orphan.getTypeName().compareToIgnoreCase(primaryKey.getTypeName()) == 0;
+        boolean lengthMatch = orphan.getLength() - primaryKey.getLength() == 0;
+        
+        return (typeMatchByObject || typeMatchByName) && lengthMatch;
     }
 }

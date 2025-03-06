@@ -2,7 +2,7 @@ package org.schemaspy.progress;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.InstantSource;
+import java.time.Clock;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -19,20 +19,20 @@ public class ConditionalProgress<T extends Throwable> implements Proc<T> {
   private final FinishCallback finishCallback;
   private final Condition condition;
   private final Job<T> job;
-  private final InstantSource instantSource;
+  private final Clock clock;
 
   public ConditionalProgress(
       ProgressReporter progressReporter,
       FinishCallback finishCallback,
       Condition condition,
       Job<T> job,
-      InstantSource instantSource
+      Clock clock
   ) {
     this.progressReporter = progressReporter;
     this.finishCallback = finishCallback;
     this.condition = condition;
     this.job = job;
-    this.instantSource = instantSource;
+    this.clock = clock;
   }
 
   /**
@@ -40,7 +40,7 @@ public class ConditionalProgress<T extends Throwable> implements Proc<T> {
    */
   public void execute() throws T {
     final LongAdder increments = new LongAdder();
-    final Instant start = instantSource.instant();
+    final Instant start = clock.instant();
     job.execute(() -> {
       increments.increment();
       if (condition.report()) {
@@ -51,7 +51,7 @@ public class ConditionalProgress<T extends Throwable> implements Proc<T> {
         increments.sum(),
         Duration.between(
             start,
-            instantSource.instant()
+            clock.instant()
         )
     );
   }

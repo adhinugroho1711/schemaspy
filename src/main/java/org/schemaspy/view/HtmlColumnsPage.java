@@ -73,7 +73,7 @@ public class HtmlColumnsPage {
                     tableColumn,
                     indexedColumns.contains(tableColumn)
                 )
-            ).toList();
+            ).collect(Collectors.toList());
 
         PageData pageData = new PageData.Builder()
                 .templateName("column.html")

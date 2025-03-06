@@ -2,7 +2,7 @@ package org.schemaspy.progress;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.InstantSource;
+import java.time.Clock;
 
 /**
  * Implementation of a Condition that only
@@ -12,17 +12,17 @@ import java.time.InstantSource;
 
 public class IfUpdateAfter implements Condition {
 
-  private final InstantSource instantSource;
+  private final Clock clock;
   private final Duration updateFrequency;
   private Instant nextUpdate;
 
   public IfUpdateAfter(
       final Duration updateFrequency,
-      final InstantSource instantSource
+      final Clock clock
   ) {
     this.updateFrequency = updateFrequency;
-    this.instantSource = instantSource;
-    this.nextUpdate = this.instantSource
+    this.clock = clock;
+    this.nextUpdate = this.clock
         .instant()
         .plus(this.updateFrequency);
   }
@@ -32,7 +32,7 @@ public class IfUpdateAfter implements Condition {
    */
   @Override
   public boolean report() {
-    final Instant now = this.instantSource.instant();
+    final Instant now = this.clock.instant();
     if (now.isAfter(this.nextUpdate)) {
       this.nextUpdate = now.plus(this.updateFrequency);
       return true;

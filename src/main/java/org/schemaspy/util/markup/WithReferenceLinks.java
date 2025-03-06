@@ -54,7 +54,7 @@ public class WithReferenceLinks implements Markup {
                     pagePath += "#" + anchorLink;
                 }
 
-                markupTextWithReferenceLink = markupTextWithReferenceLink.replace(String.format("[%s]", pageLink), linkFormat.formatted(pageLink, pagePath));
+                markupTextWithReferenceLink = markupTextWithReferenceLink.replace(String.format("[%s]", pageLink), String.format(linkFormat, pageLink, pagePath));
             }
         }
 

@@ -25,6 +25,7 @@
 package org.schemaspy;
 
 import java.util.stream.StreamSupport;
+import java.util.stream.Collectors;
 import org.schemaspy.model.*;
 import org.schemaspy.util.Filtered;
 import org.schemaspy.util.WhenFalse;
@@ -318,7 +319,7 @@ public class DbAnalyzer {
         return StreamSupport.stream(populated.spliterator(), false)
             .distinct()
             .sorted()
-            .toList();
+            .collect(Collectors.toList());
     }
 
     public static boolean hasTables(

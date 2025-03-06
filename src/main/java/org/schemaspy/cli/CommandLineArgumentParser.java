@@ -87,7 +87,7 @@ public class CommandLineArgumentParser {
         List<ParameterDescription> helpParameters = jCommander.getParameters()
                 .stream()
                 .filter(ParameterDescription::isHelp)
-                .toList();
+                .collect(Collectors.toList());
         for(ParameterDescription parameterDescription: helpParameters) {
             if (parameterDescription.isAssigned()) {
                 return false;

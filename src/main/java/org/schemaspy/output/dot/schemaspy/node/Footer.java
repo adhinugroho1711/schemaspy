@@ -32,7 +32,7 @@ public class Footer implements Element {
 
   @Override
   public String value() {
-    return TEMPLATE.formatted(
+    return String.format(TEMPLATE,
         background,
         parents.value(),
         rows.value(),

@@ -28,11 +28,21 @@ public class LogPath implements Consumer<Path> {
     if (logger.isEnabledForLevel(level)) {
       Sanitize sanitizePath = new Sanitize(path.toString());
       switch (level) {
-        case ERROR -> logger.error(format, sanitizePath);
-        case WARN -> logger.warn(format, sanitizePath);
-        case INFO -> logger.info(format, sanitizePath);
-        case DEBUG -> logger.debug(format, sanitizePath);
-        case TRACE -> logger.trace(format, sanitizePath);
+        case ERROR:
+          logger.error(format, sanitizePath);
+          break;
+        case WARN:
+          logger.warn(format, sanitizePath);
+          break;
+        case INFO:
+          logger.info(format, sanitizePath);
+          break;
+        case DEBUG:
+          logger.debug(format, sanitizePath);
+          break;
+        case TRACE:
+          logger.trace(format, sanitizePath);
+          break;
       }
     }
   }

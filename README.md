@@ -19,8 +19,8 @@ Just download the latest [JAR file](https://github.com/schemaspy/schemaspy/relea
 To use SchemaSpy from Maven, please see the [Maven chapter](#maven) below.
 
 ```
-# replace '6.2.4' with latest version
-curl -L https://github.com/schemaspy/schemaspy/releases/download/v6.2.4/schemaspy-6.2.4.jar \
+# replace '7.0.1' with latest version
+curl -L https://github.com/schemaspy/schemaspy/releases/download/v7.0.1/schemaspy-7.0.1.jar \
     --output ~/Downloads/schemaspy.jar
 ```
 

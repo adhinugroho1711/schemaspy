@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.function.Predicate;
 
 import org.apache.commons.io.FileUtils;
@@ -626,7 +627,7 @@ public class SchemaAnalyzer {
             List<String> otherSchemas = schemas
                 .stream()
                 .filter(Predicate.not(populatedSchemas::contains))
-                .toList();
+                .collect(Collectors.toList());
             if (!otherSchemas.isEmpty()) {
                 LOGGER.info("Other available schemas(Some of these may be system schemas):");
                 otherSchemas

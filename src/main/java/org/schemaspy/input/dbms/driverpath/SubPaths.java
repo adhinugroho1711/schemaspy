@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.schemaspy.input.dbms.exceptions.RuntimeIOException;
@@ -19,7 +20,7 @@ public class SubPaths implements Iterable<Path>{
   @Override
   public Iterator<Path> iterator() {
     try (Stream<Path> pathStream = Files.walk(this.path)){
-      return pathStream.sorted().toList().iterator();
+      return pathStream.sorted().collect(Collectors.toList()).iterator();
     } catch (IOException e) {
       throw new RuntimeIOException("Unable to expand driver path", e);
     }
